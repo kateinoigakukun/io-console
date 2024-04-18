@@ -28,11 +28,6 @@ jobs:
           - ruby: truffleruby-head
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
-    - name: git config
-      run: |
-        git config --global core.autocrlf false
-        git config --global core.eol lf
-        git config --global advice.detachedHead 0
     - uses: actions/checkout@v4
     - name: Set up Ruby ${{ matrix.ruby }}
       uses: ruby/setup-ruby@v1
@@ -44,22 +39,14 @@ jobs:
     - name: Run test
       run: rake # Attempting without 'bundle exec'
       continue-on-error: ${{matrix.ruby == 'truffleruby-head'}}
-    - id: build
-      run: |
-        rake build
-        echo "pkg=${GITHUB_REPOSITORY#*/}-${PLATFORM:-${RUNNING_OS%-*}}" >> $GITHUB_OUTPUT
+
+    - uses: ./.github/actions/package
+      with:
+        package-name: ${GITHUB_REPOSITORY#*/}-${PLATFORM:-${RUNNER_OS}}
       env:
-        RUNNING_OS: ${{matrix.os}}
         PLATFORM: ${{ startsWith(matrix.ruby, 'jruby') && 'java' || '' }}
       if: >-
         ${{
         github.event_name == 'push' &&
         (matrix.ruby == needs.ruby-versions.outputs.latest || matrix.ruby == 'jruby-head')
         }}
-      shell: bash
-    - name: Upload package
-      uses: actions/upload-artifact@v4
-      with:
-        path: pkg/*.gem
-        name: ${{steps.build.outputs.pkg}}
-      if: steps.build.outputs.pkg
